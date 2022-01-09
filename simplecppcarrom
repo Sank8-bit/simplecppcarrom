@@ -1,0 +1,569 @@
+#include<simplecpp>
+#include<fstream>
+const int deacc=2000;       //Proportionl to value of coefficient of friction
+const double delta=.001;    //Least count of time during whole program
+const int error=10;
+const int board_side=700;
+const int border_width=25;
+
+void structure (){   //Creates the background of board of game
+	Rectangle borout(350,350,700,700);
+    borout.setColor(COLOR("black")); borout.setFill(true);borout.imprint();
+    Rectangle play(350,350,650,650);
+    play.setFill(true);play.setColor(COLOR(250,125,0));
+    play.imprint();
+    Circle end11(150,125,12.5),end12(550,125,12.5),end21(550,575,12.5),end22(150,575,12.5);
+    end12.setFill(true);end12.setColor(COLOR("red"));
+    end22.setFill(true);end22.setColor(COLOR("red"));
+    end11.setFill(true);end11.setColor(COLOR("red"));
+    end21.setFill(true);end21.setColor(COLOR("red"));
+    end11.imprint();end12.imprint();end21.imprint();end22.imprint();
+    Circle end31(125,150,12.5),end32(125,550,12.5),end41(575,550,12.5),end42(575,150,12.5);
+    end32.setFill(true);end32.setColor(COLOR("red"));
+    end42.setFill(true);end42.setColor(COLOR("red"));
+    end31.setFill(true);end31.setColor(COLOR("red"));
+    end41.setFill(true);end41.setColor(COLOR("red"));
+    end32.imprint();end42.imprint();end31.imprint();end41.imprint();
+    Circle endb11(150,125,12.5),endb12(550,125,12.5),endb21(550,575,12.5),endb22(150,575,12.5);
+    Circle endb31(125,150,12.5),endb32(125,550,12.5),endb41(575,550,12.5),endb42(575,150,12.5);
+    endb11.imprint();endb12.imprint();endb21.imprint();endb22.imprint();
+    endb41.imprint();endb42.imprint();endb32.imprint();endb31.imprint();
+    Rectangle lylo(112.5,350,0,400),lyli(137.5,350,0,400),lyri(562.5,350,0,400),lyro(587.5,350,0,400);
+    Rectangle lxdo(350,112.5,400,0),lxdi(350,137.5,400,0),lxui(350,562.5,400,0),lxuo(350,587.5,400,0);
+    lylo.imprint();lyli.imprint();lyro.imprint();lyri.imprint();lxdo.imprint();lxuo.imprint();lxui.imprint();lxdi.imprint();
+    Circle ceno(350,350,50);
+    ceno.setFill(true);ceno.setColor(COLOR("red"));
+    ceno.imprint();
+    Circle ceni(350,350,47);
+    Circle cen(350,350,20);
+    Circle cenb(350,350,20);
+    ceni.setFill(true);ceni.setColor(COLOR(250,125,0));
+    ceni.imprint();
+    cen.setFill(true);cen.setColor(COLOR("red"));
+    cen.imprint();
+    Circle poc1(45,45,20),poc2(45,655,20),poc3(655,655,20),poc4(655,45,20);
+    Circle poc1b(45,45,20),poc2b(45,655,20),poc3b(655,655,20),poc4b(655,45,20);
+    poc1.setFill(true);poc1.setColor(COLOR("white"));
+    poc2.setFill(true);poc2.setColor(COLOR("white"));
+    poc3.setFill(true);poc3.setColor(COLOR("white"));
+    poc4.setFill(true);poc4.setColor(COLOR("white"));
+    poc1.imprint();poc2.imprint();poc3.imprint();poc4.imprint();
+    poc1b.imprint();poc2b.imprint();poc3b.imprint();poc4b.imprint();
+	}
+
+double first_root(double sec_coeff,double third_coeff,double fourth_coeff, double fifth_coeff,double time){ //Finds the first positive root of quartic equation considering first coefficient 1
+	double t=0;
+	for(;t<time;t=t+delta){
+		if((pow(t,4)+sec_coeff*pow(t,3)+third_coeff*pow(t,2)+fourth_coeff*t+fifth_coeff)<0) return t;
+	}
+	return error;
+
+}
+
+class Velocity{
+	public:
+	double x;
+	double y;
+	void set(double a,double b){
+		x=a;
+		y=b;
+	}
+};
+
+class Acceleration{
+	public:
+	double x;
+	double y;
+	void set(double a,double b){
+		x=a;
+		y=b;
+	}
+};
+
+double quadratic(double a,double b,double c){
+	double d=b*b-4*a*c;
+	if(d<0) return error;                       //In case of imaginary roots
+	if(a>0){
+		double k=(-b-sqrt(d))/(2*a);
+		return k;
+	}
+	else{
+		double k=(-b+sqrt(d))/(2*a);
+		return k;
+	}
+}
+
+class Goti;
+
+double time_till_collision_with_ball_stationary(Goti *,Goti *);
+
+class Goti{
+	public:
+	Circle c;
+	Velocity v;
+	Acceleration a;
+	Goti *next;
+	char ch;
+	Goti(){
+		c.reset(0,0,0);
+		v.set(0,0);
+		a.set(0,0);
+		next=0;
+		ch='X';
+	}
+
+	void move(){ //moves a goti for delta(.001)time
+		double r=v.y/v.x;
+		c.move(v.x*delta,v.y*delta);
+		v.set(v.x-a.x*(delta),v.y);
+		v.set(v.x,v.x*r);
+	}
+
+	void collision_wall(){ //Changes velocity of goti after collision with wall
+		if(ch=='Y')  {v.set(-v.x,v.y);   a.set(-a.x,a.y);}
+		if(ch=='X')  {v.set(v.x,-v.y);   a.set(a.x,-a.y);}
+	}
+
+	void stop(){  //Sets velocity and acceleration to zero after stopping
+		v.set(0,0);
+		a.set(0,0);
+	}
+
+	double time_till_collision_with_wall(){   //Calculates the minimum time till collision with any of the walls
+		double t1=error,t2=error;
+		if(v.x>0)  t1=quadratic(a.x/2,-v.x,board_side-c.getRadius()-border_width-c.getX());
+		if(v.x<0)  t1=quadratic(-a.x/2,v.x,-c.getRadius()-border_width+c.getX());
+		if(v.y>0)  t2=quadratic(a.y/2,-v.y,board_side-c.getRadius()-border_width-c.getY());
+		if(v.y<0)  t2=quadratic(-a.y/2,v.y,-c.getRadius()-border_width+c.getY());
+		if(t2<0&&t1>0)return t1;
+		if(t2>0&&t1<0)return t2;
+		if(t2<0&&t1<0)return error;
+		if(t1<t2){
+			ch='Y';
+			return t1;
+		}
+		else{
+			ch='X';
+			return t2;
+		}
+	}
+
+	double time_till_stop(){ //Calculates time till goti stops due to friction
+		double time1;
+		time1=v.x/a.x;
+
+		return time1;
+	}
+
+	double time_till_going_in_the_pocket(){ //Calculate minimum time till a goti goes into any one of the pockets
+		Goti pocket1,pocket2,pocket3,pocket4;
+		pocket1.c.reset(45,45,20-c.getRadius());
+		pocket2.c.reset(655,45,20-c.getRadius());
+		pocket3.c.reset(655,655,20-c.getRadius());
+		pocket4.c.reset(45,655,20-c.getRadius());
+		double min=error,t[4];
+		t[0]=time_till_collision_with_ball_stationary(this,&pocket1);
+		t[1]=time_till_collision_with_ball_stationary(this,&pocket2);
+		t[2]=time_till_collision_with_ball_stationary(this,&pocket3);
+		t[3]=time_till_collision_with_ball_stationary(this,&pocket4);
+		for(int i=0;i<4;i++){
+			if(t[i]<min){
+				min=t[i];
+			}
+		}
+		return min;
+	}
+
+	void goti_in_the_hole(){ //Removes the goti from the board after it goes into the pocket
+		c.reset(1600,1600,0);
+	}
+};
+
+class list{
+	public:
+	Goti *head;
+
+	list (){
+		head=0;
+	}
+
+	void add (Goti *p){     //Adds a goti to a list
+		p->next=head;
+		head=p;
+	}
+
+	void remove (Goti *p){  //Finds and removes a goti from the list
+		if(head==p){
+			head=head->next;
+			p->next=0;
+			return;
+		}
+		Goti *tmp=head;
+		Goti *a;
+		while(tmp!=0){
+			if(tmp==p){
+				a->next=tmp->next;
+				p->next=0;
+				return;
+			}
+			a=tmp;
+			tmp=tmp->next;
+		}
+	}
+};
+
+double time_till_collision_with_ball_stationary(Goti *mov,Goti *not_mov){  //Calculates time till collision between one moving and one stationary goti
+	bool a=false,b=false;
+	if((mov->c.getX()>not_mov->c.getX())^(mov->v.x>0)) a=true;
+	if((mov->c.getY()>not_mov->c.getY())^(mov->v.y>0)) b=true;
+	if(a||b){
+		double x=not_mov->c.getX()-mov->c.getX();
+		double y=not_mov->c.getY()-mov->c.getY();
+		if(((y*mov->v.x-x*mov->v.y)/sqrt(mov->v.x*mov->v.x+mov->v.y*mov->v.y))<(mov->c.getRadius()+not_mov->c.getRadius())){
+			double r=quadratic(pow(mov->v.x,2)+pow(mov->v.y,2),(-2)*((mov->v.x)*x+(mov->v.y)*y),x*x+y*y-pow((mov->c.getRadius()+not_mov->c.getRadius()),2));
+			double t=quadratic(mov->a.x/2,-mov->v.x,mov->v.x*r);
+			if(t<0) return error;
+			else return t;
+		}
+		else return error;
+	}
+	else return error;
+}
+
+void collision_mov_notmov (Goti *fir,Goti* sec,double e,double mfir,double msec){//Changes velocity for collision between one moving and one stationary goti
+	double vx1,vx2,vy1,vy2;
+	double x=sec->c.getX()-fir->c.getX(); //Relative x coordinate
+	double y=sec->c.getY()-fir->c.getY(); //Relative y coordinate
+	double l=sec->c.getRadius()+fir->c.getRadius();
+	double co=x/l; //co=cos
+	double si=y/l; //si=sin
+	vx2=co*(si*(fir->v.y)+co*(fir->v.x));
+	vy2=si*(si*(fir->v.y)+co*(fir->v.x));
+	vx1=si*(si*(fir->v.x)-co*(fir->v.y));
+	vy1=co*(co*(fir->v.y)-si*(fir->v.x));
+	fir->v.set(vx1,vy1);
+	sec->v.set(vx2,vy2);
+	double fir_speed=sqrt(pow(fir->v.x,2)+pow(fir->v.y,2));
+	double sec_speed=sqrt(pow(sec->v.x,2)+pow(sec->v.y,2));
+	fir->a.set(deacc*fir->v.x/fir_speed,deacc*fir->v.y/fir_speed);
+	sec->a.set(deacc*sec->v.x/sec_speed,deacc*sec->v.y/sec_speed);
+}
+
+
+void collision_mov_mov (Goti *fir,Goti* sec,double e,double mfir,double msec){   //Changes velocity for collision between two moving gotis
+	double vx1,vx2,vy1,vy2;
+	double x=sec->c.getX()-fir->c.getX();
+	double y=sec->c.getY()-fir->c.getY();
+	double l=sec->c.getRadius()+fir->c.getRadius();
+	double co=x/l;
+	double si=y/l;
+	vx2=co*(si*(fir->v.y-sec->v.y)+co*(fir->v.x-sec->v.x))+sec->v.x;
+	vy2=si*(si*(fir->v.y-sec->v.y)+co*(fir->v.x-sec->v.x))+sec->v.y;
+	vx1=si*(si*(fir->v.x-sec->v.x)-co*(fir->v.y-sec->v.y))+sec->v.x;
+	vy1=co*(co*(fir->v.y-sec->v.y)-si*(fir->v.x-sec->v.x))+sec->v.y;
+	fir->v.set(vx1,vy1);
+	sec->v.set(vx2,vy2);
+	double fir_speed=sqrt(pow(fir->v.x,2)+pow(fir->v.y,2));
+	double sec_speed=sqrt(pow(sec->v.x,2)+pow(sec->v.y,2));
+	fir->a.set(deacc*fir->v.x/fir_speed,deacc*fir->v.y/fir_speed);
+	sec->a.set(deacc*sec->v.x/sec_speed,deacc*sec->v.y/sec_speed);
+}
+
+
+double time_till_collision_with_ball_moving(Goti *fir,Goti *sec,double time){  //Calculates time till collision between two moving gotis
+	double ax=(fir->a.x-sec->a.x);//Relative acceleration in x direction
+	double ay=(fir->a.y-sec->a.y);//Relative acceleration in y direction
+	double vx=(fir->v.x-sec->v.x);//Relative velocity in x direction
+	double vy=(fir->v.y-sec->v.y);//Relative velocity in y direction
+	double  x=(sec->c.getX()-fir->c.getX());//Relative x coordinate
+	double  y=(sec->c.getY()-fir->c.getY());//Relative y coordinate
+	if((vx)*(x)+(vy)*(y)>0){//Checks whether distance between gotis' is decreasing : Necessary condition for collision
+		double coeff=(ax*ax+ay*ay)/4; //Coffecient of first term
+		double root=first_root(-(vx*ax+vy*ay)/coeff,(vx*vx+vy*vy+ax*x+ay*y)/coeff,-2*(vx*x+vy*y)/coeff,(x*x+y*y-pow((fir->c.getRadius()+sec->c.getRadius()),2))/coeff,time);
+		//Root gives time till collision
+		return root;
+	}
+	else return error;
+}
+
+//Following min function calculates minimum time till any event of the 5 types occurs
+double min(int &type,Goti * &p,Goti * &q,list l_mov,list l_stat){//passing pointer by refrence
+	Goti *tmp1=l_mov.head;
+	double min_time=error;
+	while(tmp1!=0){
+		double t1=tmp1->time_till_stop();  //Type1 : stopping due to friction
+		if(t1<min_time){
+			type=1;
+			min_time=t1;
+			p=tmp1;
+		}
+		double t2=tmp1->time_till_collision_with_wall();  //Type2 : Collision with any of the four walls
+		if(t2<min_time){
+			type=2;
+			min_time=t2;
+			p=tmp1;
+		}
+		Goti *tmp2=l_stat.head;
+		while(tmp2!=0){
+			double t3=time_till_collision_with_ball_stationary(tmp1,tmp2); //Type3 : Collision between stationary and moving goti
+			if(t3<min_time){
+				type=3;
+				min_time=t3;
+				p=tmp1;
+				q=tmp2;
+			}
+			tmp2=tmp2->next;
+		}
+		Goti *tmp3=tmp1->next;
+		while(tmp3!=0){
+			double t4=time_till_collision_with_ball_moving(tmp1,tmp3,min_time); //Type4 : Collision between two moving gotis
+			if(t4<min_time){
+				type=4;
+				min_time=t4;
+				p=tmp1;
+				q=tmp3;
+			}
+			tmp3=tmp3->next;
+		}
+		double t5=tmp1->time_till_going_in_the_pocket(); //Type5 : When goti goes in pocket
+		if(t5<min_time){
+			type=5;
+			min_time=t5;
+			p=tmp1;
+		}
+		tmp1=tmp1->next;
+	}
+	return min_time;
+}
+
+void start()
+{
+ structure();
+ while(1)
+ {
+ }
+}
+void about()
+{
+cout<<"Hello";
+//initCanvas("About",700,700);
+Rectangle bg(700,700,700,700);
+bg.setColor(YELLOW);
+bg.setFill();
+Text t7(350,350,"This project was created by Sanketh Shenoy,Manohar Naik Gaunekar,Rawdon Noronha,Idwal Dias.");
+wait(100);
+closeCanvas();
+}
+void exit()
+{
+closeCanvas();
+}
+int main(){
+
+
+	ofstream out("previous_game.txt",ios::out);
+	int turn=0,score[2]={0,0}; //even and odd turns represents player1 and player2 respectively
+	string s[2];               //Name of respective players
+	cout<<"player 1 enter name\n";
+	cin>>s[0];
+	cout<<"player 2 enter name\n";
+	cin>>s[1];
+	initCanvas("welcome page",700,700);
+	Rectangle bg(700,700,1400,1600);
+	bg.setColor(YELLOW);
+	bg.setFill();
+	Text t5(340,125,"welcome to the carrom game!");
+
+	Rectangle r10(334,175,90,30);
+	Text t10(336,173,"START");
+
+	Rectangle r20(334,225,90,30);
+	Text t20(336,223,"ABOUT");
+	//r20.setColor();
+	//r20.setFill();
+	Rectangle r30(334,275,90,30);
+	Text t30(336,273,"EXIT");
+	//r30.setColor();
+	//r30.setFill();
+	int d=getClick();
+    int x=d/65536;
+    int y=d%65536;
+
+    if(getClick()>0)
+    {
+        if((x>334 && x<424)&&(y>275 && y<305))
+            {
+                    cout<<"Exiting";
+                            exit();
+                            closeCanvas();
+                            }                                }
+    if((x>289 && x<379)&&(y>210 && y<240))
+        {
+                cout<<"About";
+                        about();
+                            }
+    if((x>289 && x<379)&&(y>160 && y<190))
+        {
+                cout<<"start";
+                       // start();
+                       bg.reset(0,0,0,0);
+                       r10.reset(0,0,0,0);
+                       r20.reset(0,0,0,0);
+                       r30.reset(0,0,0,0);
+                       t5.reset(0,0,"");
+                       t10.reset(0,0,"");
+                       t20.reset(0,0,"");
+                       t30.reset(0,0,"");
+                       cout<<"x="<<x<<"y="<<y;
+	string turn_name[2];
+	if(s[0]=="")s[0]="Player 1";
+	if(s[1]=="")s[1]="Player 2";
+	turn_name[0]=s[0]+"'s turn";
+	turn_name[1]=s[1]+"'s turn";
+	//initCanvas("CARROM",750,750);
+
+	structure();
+	Text sc1(500,12.5,"SCORE :");
+	sc1.setColor(COLOR("red"));
+	Text sc2(500,687.5,"SCORE :");
+	sc2.setColor(COLOR("red"));
+	list l_mov,l_stat;
+	int type=7;   //The type of event that will take place
+	Goti *p,*q;   // These pointers refer to the gotis corresponding to the next event
+	Goti gs,g[9];  //Striker and rest of gotis
+	{gs.c.reset(350,125,20);
+	gs.c.setFill(true);
+	gs.c.setColor(COLOR("blue"));
+	g[0].c.reset(348,348,15);
+	g[1].c.reset(299,299,15);
+	g[2].c.reset(349,303,15);
+	g[3].c.reset(404,302,15);
+	g[4].c.reset(293,349,15);
+	g[5].c.reset(403,347,15);
+	g[6].c.reset(292,404,15);
+	g[7].c.reset(402,402,15);
+	g[8].c.reset(347,403,15);
+
+	for(int i=0;i<9;i++){
+		l_stat.add(&g[i]);
+		g[i].c.setFill(true);
+		g[i].c.setColor(COLOR("black"));
+	}
+	}
+	Text t,pos;
+	t.setColor(COLOR("blue"));
+	while(true){    //While loop for different turns
+		if(l_stat.head->next==0) break;
+		bool shot=false;
+		Text score1(550,12.5,score[0]);
+		score1.setColor(COLOR("blue"));
+		Text score2(550,687.5,score[1]);
+		score2.setColor(COLOR("blue"));
+		if(turn%2==0) {
+			t.reset(350,12.5,turn_name[0]);
+			gs.c.reset(350,125,20);
+			pos.reset(350,37.5,"set your striker");
+			int n=getClick();
+			pos.reset(350,37.5,"");
+			int xp=n/65536;
+			if (xp>550)xp=550;
+			if (xp<150)xp=150;
+			gs.c.reset(xp,125,20);
+		}
+		else{
+			t.reset(350,700-12.5,turn_name[1]);
+			gs.c.reset(350,575,20);
+			pos.reset(350,662.5,"set your striker");
+			int n=getClick();
+			pos.reset(350,662.5,"");
+			int xp=n/65536;
+			if (xp>550)xp=550;
+			if (xp<150)xp=150;
+			gs.c.reset(xp,575,20);
+		}
+		while(true){//Restricts user from striking back of his line and gives chances until correct strike is made
+			int m=getClick();
+			if((turn%2==0&&m%65536>125)||(turn%2==1&&m%65536<575)){
+				int x=m/65536;
+				int y=m%65536;
+				if(x==gs.c.getX()) x=x+1;
+				if(y==gs.c.getY()) y=y+1;
+				gs.v.set((x-gs.c.getX())*4,(y-gs.c.getY())*4);
+				double speed=sqrt(pow(gs.v.x,2)+pow(gs.v.y,2));
+				gs.a.set(deacc*gs.v.x/speed,deacc*gs.v.y/speed);
+				break;
+			}
+		}
+		l_stat.remove(&gs);
+		l_mov.add(&gs);
+		double min_time=90;
+
+		while(true){   //Completes one turn until all the gotis either come to rest or go in pocket
+			Goti *tmp=l_mov.head;
+
+			if(tmp==0)break;
+			min_time=min(type,p,q,l_mov,l_stat);
+			for(double i=0;i<min_time;i=i+delta){   //Moves all gotis for a given time between two succesive events
+				while(tmp!=0){
+					tmp->move();
+					tmp=tmp->next;
+				}
+				wait(delta);
+				tmp=l_mov.head;
+			}
+			if(type==1){
+				p->stop();
+				l_mov.remove(p);
+				l_stat.add(p);
+			}
+			if(type==2){
+				p->collision_wall();
+			}
+			if(type==3){
+				collision_mov_notmov(p,q,1,1,1);
+				l_stat.remove(q);
+				l_mov.add(q);
+			}
+			if(type==4){
+				collision_mov_mov(p,q,1,1,1);
+			}
+			if(type==5){
+				p->goti_in_the_hole();
+				l_mov.remove(p);
+				if(p==&gs){
+					score[turn%2]--;
+				}
+				else{
+					score[turn%2]++;  //Adds to score of player if correct gotis go in pocket
+					shot=true;
+				}
+			}
+		}
+
+		wait(2);
+		out<<"turn "<<turn<<endl;
+		out<<"player 1 score "<<score[0]<<"\tplayer 2 score "<<score[1]<<endl<<endl;
+		turn++;   //Shifts turn from one player to another
+		if(shot==true) turn--;
+	}
+Text winner(350,350,"");
+string win;
+//Following if statements decide the winner among the two and display it at end
+if(score[0]>score[1]) {
+	win=s[0]+" wins";
+	winner.reset(350,350,win);
+	cout<<win<<endl;
+}
+else if(score[1]<score[0]) {
+	win=s[1]+" wins";
+	winner.reset(350,350,win);
+	cout<<win<<endl;
+}
+else winner.reset(350,350,"match drawn");
+	getClick();
+	cout<<"match drawn\n";
+
+                            }
+
+//Exits program after getting a click from user
+}
